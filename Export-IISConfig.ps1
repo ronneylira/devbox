@@ -9,6 +9,12 @@ function Export-IISConfiguration {
   $isPSCore = $PSVersionTable.PSEdition -eq 'Core'
   Write-Host "Using PowerShell $($PSVersionTable.PSVersion) ($($PSVersionTable.PSEdition))" -ForegroundColor Cyan
 
+  # Create output directory if it doesn't exist
+  if (-not (Test-Path $OutputPath)) {
+    New-Item -ItemType Directory -Path $OutputPath -Force | Out-Null
+    Write-Host "Created output directory: $OutputPath" -ForegroundColor Green
+  }
+
   # Check if WebAdministration module is available
   $moduleAvailable = $false
   if ($isPSCore) {
@@ -78,7 +84,7 @@ function Export-IISConfiguration {
   Write-Host "Exporting Application Pools..."
   try {
     $appPools = Get-ChildItem IIS:\AppPools | Select-Object Name, State, ManagedRuntimeVersion, ManagedPipelineMode, @{Name='ProcessModel';Expression={$_.processModel.identityType}}
-    $appPools | ConvertTo-Json | Out-File -FilePath "$OutputPath\iis-apppools.json"
+    $appPools | ConvertTo-Json | Out-File -FilePath (Join-Path -Path $OutputPath -ChildPath "iis-apppools.json")
   } catch {
     Write-Warning "Error exporting application pools: $_"
   }
@@ -105,7 +111,7 @@ function Export-IISConfiguration {
             ApplicationPool = $site.ApplicationPool
         }
     }
-    $websites | ConvertTo-Json -Depth 5 | Out-File -FilePath "$OutputPath\iis-websites.json"
+    $websites | ConvertTo-Json -Depth 5 | Out-File -FilePath (Join-Path -Path $OutputPath -ChildPath "iis-websites.json")
   } catch {
     Write-Warning "Error exporting websites: $_"
   }
@@ -131,7 +137,7 @@ function Export-IISConfiguration {
     }
     # Filter out null entries and convert to JSON
     $applications = $applications | Where-Object {$_ -ne $null}
-    $applications | ConvertTo-Json -Depth 5 | Out-File -FilePath "$OutputPath\iis-applications.json"
+    $applications | ConvertTo-Json -Depth 5 | Out-File -FilePath (Join-Path -Path $OutputPath -ChildPath "iis-applications.json")
   } catch {
     Write-Warning "Error exporting web applications: $_"
   }
@@ -156,12 +162,12 @@ function Export-IISConfiguration {
     }
     # Filter out null entries and convert to JSON
     $vdirs = $vdirs | Where-Object {$_ -ne $null}
-    $vdirs | ConvertTo-Json -Depth 5 | Out-File -FilePath "$OutputPath\iis-vdirs.json"
+    $vdirs | ConvertTo-Json -Depth 5 | Out-File -FilePath (Join-Path -Path $OutputPath -ChildPath "iis-vdirs.json")
   } catch {
     Write-Warning "Error exporting virtual directories: $_"
   }
 
-  Write-Host "IIS configuration export completed." -ForegroundColor Green
+  Write-Host "IIS configuration export completed to $OutputPath" -ForegroundColor Green
 }
 
 # Run the export function only if script is run directly (not dot-sourced)

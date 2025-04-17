@@ -15,10 +15,12 @@ $moduleDirectories = @(
     "iis",
     "powershell",
     "environment",
-    "vscode",
     "git",
+    "vscode",
+    "windows-terminal",
     "browser-bookmarks",
-    "windows-terminal"
+    "sqlserver",
+    "oh-my-posh"
 )
 
 foreach ($dir in $moduleDirectories) {
@@ -133,6 +135,9 @@ if ($moduleLoaded) {
     # Export IIS modules and handler mappings to the current directory
     . ..\..\Export-IISModules.ps1 -OutputPath .
     
+    # Export IIS websites and application pools
+    . ..\..\Export-IISWebsitesAndPools.ps1 -OutputPath .
+    
     # Generate DSC configuration from IIS export with the current directory as output path
     . ..\..\Generate-IISDscConfig.ps1 -OutputPath .
     
@@ -192,6 +197,13 @@ if (Get-Command code -ErrorAction SilentlyContinue) {
     $installScript | Out-File -FilePath .\vscode\Install-VSCodeExtensions.ps1
 }
 
+# Export Oh My Posh theme if installed
+Write-Host "Exporting Oh My Posh theme configuration..." -ForegroundColor Cyan
+$currentLocation = Get-Location
+Set-Location .\oh-my-posh
+. ..\..\Export-OhMyPoshTheme.ps1
+Set-Location $currentLocation
+
 # 9. Export Git configuration if Git is installed
 Write-Host "Exporting Git configuration..." -ForegroundColor Cyan
 if (Get-Command git -ErrorAction SilentlyContinue) {
@@ -228,6 +240,17 @@ Write-Host "Exporting browser bookmarks..." -ForegroundColor Cyan
 # 11. Export Windows Terminal settings and profiles
 Write-Host "Exporting Windows Terminal settings..." -ForegroundColor Cyan
 . ..\Export-WindowsTerminalSettings.ps1 -ExportPath .\windows-terminal
+
+# 11.1 Export Oh My Posh theme
+Write-Host "Exporting Oh My Posh theme..." -ForegroundColor Cyan
+. ..\Export-OhMyPoshTheme.ps1 -ExportPath .\oh-my-posh
+
+# 11.2 Export SQL Server registered servers
+Write-Host "Exporting SQL Server registered servers..." -ForegroundColor Cyan
+$currentLocation = Get-Location
+Set-Location .\sqlserver
+. ..\..\Export-SQLRegisteredServers.ps1 -OutputPath .
+Set-Location $currentLocation
 
 # 12. Create comprehensive DSC configuration that includes all components
 Write-Host "Creating comprehensive DSC configuration..." -ForegroundColor Cyan
@@ -272,7 +295,10 @@ param(
     [switch]`$ImportBrowserProfiles = `$true,
     
     [Parameter()]
-    [switch]`$ImportBrowserBookmarksOnly = `$false
+    [switch]`$ImportBrowserBookmarksOnly = `$false,
+    
+    [Parameter()]
+    [switch]`$SetupOhMyPosh = `$true
 )
 
 Write-Host "Starting comprehensive environment setup..." -ForegroundColor Green
@@ -360,11 +386,29 @@ if (Test-Path .\windows-terminal\Install-WindowsTerminalSettings.ps1) {
     & .\windows-terminal\Install-WindowsTerminalSettings.ps1
 }
 
+# 11.1 Import Oh My Posh theme
+if (`$SetupOhMyPosh -and (Test-Path .\oh-my-posh\Install-OhMyPosh.ps1)) {
+    Write-Host "Setting up Oh My Posh..." -ForegroundColor Cyan
+    & .\oh-my-posh\Install-OhMyPosh.ps1
+}
+
+# 11.2 Import SQL Server registered servers
+if (Test-Path .\sqlserver\Install-SQLRegisteredServers.ps1) {
+    Write-Host "Importing SQL Server registered servers..." -ForegroundColor Cyan
+    & .\sqlserver\Install-SQLRegisteredServers.ps1
+}
+
 # 12. Apply DSC configuration
 Write-Host "Applying DSC configuration..." -ForegroundColor Cyan
 . .\CompleteEnvironment.ps1
 CompleteEnvironment
 Start-DscConfiguration -Path .\CompleteEnvironment -Wait -Verbose -Force
+
+# 12.1 Import IIS Websites and Application Pools
+if (Test-Path .\iis\Install-IISWebsitesAndPools.ps1) {
+    Write-Host "Importing IIS Websites and Application Pools..." -ForegroundColor Cyan
+    & .\iis\Install-IISWebsitesAndPools.ps1
+}
 
 Write-Host "Environment setup complete!" -ForegroundColor Green
 "@
@@ -383,13 +427,14 @@ The export includes the following components, organized in separate folders:
 - **chocolatey/** - Chocolatey packages
 - **winget/** - WinGet packages (Windows Package Manager)
 - **windows-features/** - Windows Features configuration
-- **iis/** - IIS configuration (websites, applications, app pools)
+- **iis/** - IIS configuration (websites, applications, app pools, modules, handler mappings)
 - **powershell/** - PowerShell modules and profiles
 - **environment/** - Environment variables
 - **vscode/** - Visual Studio Code extensions
 - **git/** - Git configuration
 - **browser-bookmarks/** - Web browser bookmarks
 - **windows-terminal/** - Windows Terminal settings and profiles
+- **sqlserver/** - SQL Server Management Studio and Azure Data Studio registered servers
 
 ## Steps to Export Your Current Environment
 
@@ -440,6 +485,15 @@ The export includes the following components, organized in separate folders:
    After the setup completes, run the validation script to check that all components were installed correctly:
    ```powershell
    .\Validate-Setup.ps1
+   ```
+
+## Manual Installation Options
+If you prefer to install components individually:
+
+1. **Install IIS websites and application pools:**
+   ```powershell
+   # Import only IIS websites and application pools
+   .\iis\Install-IISWebsitesAndPools.ps1
    ```
 "@
 
@@ -533,9 +587,39 @@ if (Test-Path .\windows-terminal) {
     Write-Host "  - Import settings: & '.\windows-terminal\Install-WindowsTerminalSettings.ps1'" -ForegroundColor Yellow
 }
 
+# Check Oh My Posh theme
+if (Test-Path .\oh-my-posh) {
+    Write-Host "Oh My Posh theme was exported. Use the following to import it separately:" -ForegroundColor Yellow
+    Write-Host "  - Import theme: & '.\oh-my-posh\Install-OhMyPosh.ps1'" -ForegroundColor Yellow
+}
+
 # Check IIS configuration
 if (Test-Path .\iis) {
     Write-Host "IIS configuration was exported. To apply settings separately, use DSC configuration." -ForegroundColor Yellow
+    
+    # Check for IIS websites and application pools
+    if (Test-Path .\iis\iis-websites.json -and Test-Path .\iis\iis-apppools.json) {
+        Write-Host "IIS websites and application pools were exported. You can import them separately:" -ForegroundColor Yellow
+        Write-Host "  - Import settings: & '.\iis\Install-IISWebsitesAndPools.ps1'" -ForegroundColor Yellow
+        
+        # Verify IIS websites if WebAdministration module is available
+        if (Get-Module -Name WebAdministration -ListAvailable -ErrorAction SilentlyContinue) {
+            Import-Module WebAdministration -ErrorAction SilentlyContinue
+            $websitesJson = Get-Content -Path .\iis\iis-websites.json -Raw -ErrorAction SilentlyContinue
+            $websites = ConvertFrom-Json -InputObject $websitesJson -ErrorAction SilentlyContinue
+            
+            if ($websites) {
+                $existingCount = 0
+                foreach ($site in $websites) {
+                    if (Test-Path "IIS:\Sites\$($site.Name)") {
+                        $existingCount++
+                    }
+                }
+                
+                Write-Host "    IIS Websites Status: $existingCount of $($websites.Count) websites installed." -ForegroundColor Green
+            }
+        }
+    }
 }
 
 # Check Git configuration
@@ -548,6 +632,12 @@ if (Test-Path .\git) {
 if (Test-Path .\environment) {
     Write-Host "Environment variables were exported. Use the following to import them separately:" -ForegroundColor Yellow
     Write-Host "  - Import variables: & '.\environment\Install-EnvVariables.ps1'" -ForegroundColor Yellow
+}
+
+# Check SQL Server registered servers
+if (Test-Path .\sqlserver) {
+    Write-Host "SQL Server registered servers were exported. Use the following to import them separately:" -ForegroundColor Yellow
+    Write-Host "  - Import SQL Server registered servers: & '.\sqlserver\Install-SQLRegisteredServers.ps1'" -ForegroundColor Yellow
 }
 
 Write-Host "Validation complete!" -ForegroundColor Cyan

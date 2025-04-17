@@ -1,29 +1,48 @@
 # Export IIS modules and handler mappings
 
 function Export-IISModules {
+  [CmdletBinding()]
+  param(
+    [string]$OutputPath = "."
+  )
+  
   Write-Host "Exporting IIS modules and handler mappings..."
+  
+  # Create output directory if it doesn't exist
+  if (-not (Test-Path $OutputPath)) {
+    New-Item -ItemType Directory -Path $OutputPath -Force | Out-Null
+    Write-Host "Created output directory: $OutputPath" -ForegroundColor Green
+  }
+  
   Import-Module WebAdministration
   
   # Export global modules
   $globalModules = Get-WebGlobalModule
   $globalModulesExport = $globalModules | Select-Object Name, Image, PreCondition
-  $globalModulesExport | ConvertTo-Json | Out-File -FilePath .\iis-global-modules.json
+  $globalModulesExport | ConvertTo-Json | Out-File -FilePath (Join-Path -Path $OutputPath -ChildPath "iis-global-modules.json")
   
   # Export handler mappings
   $handlerMappings = Get-WebHandler -PSPath 'IIS:\'
   $handlerMappingsExport = $handlerMappings | Select-Object Name, Path, Verb, Modules, RequiredAccess, ResourceType, ScriptProcessor
-  $handlerMappingsExport | ConvertTo-Json -Depth 5 | Out-File -FilePath .\iis-handler-mappings.json
+  $handlerMappingsExport | ConvertTo-Json -Depth 5 | Out-File -FilePath (Join-Path -Path $OutputPath -ChildPath "iis-handler-mappings.json")
   
   # Export other IIS settings
   $mimeTypes = Get-WebConfiguration -Filter //staticContent/mimeMap -PSPath 'IIS:\'
   $mimeTypesExport = $mimeTypes | Select-Object fileExtension, mimeType
-  $mimeTypesExport | ConvertTo-Json | Out-File -FilePath .\iis-mime-types.json
+  $mimeTypesExport | ConvertTo-Json | Out-File -FilePath (Join-Path -Path $OutputPath -ChildPath "iis-mime-types.json")
   
   # Generate DSC configuration for IIS modules
-  Generate-IISModulesDsc
+  Generate-IISModulesDsc -OutputPath $OutputPath
+  
+  Write-Host "IIS modules export completed to $OutputPath" -ForegroundColor Green
 }
 
 function Generate-IISModulesDsc {
+  [CmdletBinding()]
+  param(
+    [string]$OutputPath = "."
+  )
+  
   Write-Host "Generating DSC configuration for IIS modules..."
   
   $dscConfig = @"
@@ -41,8 +60,9 @@ Configuration IISModules {
 "@
 
   # Add global modules
-  if (Test-Path .\iis-global-modules.json) {
-      $modules = Get-Content .\iis-global-modules.json | ConvertFrom-Json
+  $globalModulesPath = Join-Path -Path $OutputPath -ChildPath "iis-global-modules.json"
+  if (Test-Path $globalModulesPath) {
+      $modules = Get-Content $globalModulesPath | ConvertFrom-Json
       foreach ($module in $modules) {
           $moduleName = $module.Name -replace '[^a-zA-Z0-9]', ''
           
@@ -61,8 +81,9 @@ Configuration IISModules {
   }
   
   # Add MIME types
-  if (Test-Path .\iis-mime-types.json) {
-      $mimeTypes = Get-Content .\iis-mime-types.json | ConvertFrom-Json
+  $mimeTypesPath = Join-Path -Path $OutputPath -ChildPath "iis-mime-types.json"
+  if (Test-Path $mimeTypesPath) {
+      $mimeTypes = Get-Content $mimeTypesPath | ConvertFrom-Json
       # We'll just include a few custom MIME types that aren't default
       $defaultMimeTypes = @(".htm", ".html", ".jpg", ".jpeg", ".gif", ".png", ".js", ".css", ".txt")
       $customMimeTypes = $mimeTypes | Where-Object { $defaultMimeTypes -notcontains $_.fileExtension }
@@ -102,9 +123,11 @@ Configuration IISModules {
 "@
 
   # Write configuration to file
-  $dscConfig | Out-File -FilePath .\IISModules-DSC.ps1
-  Write-Host "DSC Configuration for IIS Modules has been generated at .\IISModules-DSC.ps1"
+  $dscConfig | Out-File -FilePath (Join-Path -Path $OutputPath -ChildPath "IISModules-DSC.ps1")
+  Write-Host "DSC Configuration for IIS Modules has been generated at $(Join-Path -Path $OutputPath -ChildPath "IISModules-DSC.ps1")"
 }
 
-# Execute the function
-Export-IISModules
+# Execute the function only if script is run directly (not dot-sourced)
+if ($MyInvocation.InvocationName -ne '.') {
+    Export-IISModules
+}
