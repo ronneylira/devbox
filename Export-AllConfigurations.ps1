@@ -252,6 +252,13 @@ Set-Location .\sqlserver
 . ..\..\Export-SQLRegisteredServers.ps1 -OutputPath .
 Set-Location $currentLocation
 
+# 11.3 Export SQL Server Management Studio settings
+Write-Host "Exporting SQL Server Management Studio settings..." -ForegroundColor Cyan
+$currentLocation = Get-Location
+Set-Location .\sqlserver
+. ..\..\Export-SQLServerSettings.ps1 -OutputPath .
+Set-Location $currentLocation
+
 # 12. Create comprehensive DSC configuration that includes all components
 Write-Host "Creating comprehensive DSC configuration..." -ForegroundColor Cyan
 $configScript = @"
@@ -396,6 +403,12 @@ if (`$SetupOhMyPosh -and (Test-Path .\oh-my-posh\Install-OhMyPosh.ps1)) {
 if (Test-Path .\sqlserver\Install-SQLRegisteredServers.ps1) {
     Write-Host "Importing SQL Server registered servers..." -ForegroundColor Cyan
     & .\sqlserver\Install-SQLRegisteredServers.ps1
+}
+
+# 11.3 Import SQL Server Management Studio settings
+if (Test-Path .\sqlserver\Install-SQLServerSettings.ps1) {
+    Write-Host "Importing SQL Server Management Studio settings..." -ForegroundColor Cyan
+    & .\sqlserver\Install-SQLServerSettings.ps1
 }
 
 # 12. Apply DSC configuration
@@ -638,6 +651,12 @@ if (Test-Path .\environment) {
 if (Test-Path .\sqlserver) {
     Write-Host "SQL Server registered servers were exported. Use the following to import them separately:" -ForegroundColor Yellow
     Write-Host "  - Import SQL Server registered servers: & '.\sqlserver\Install-SQLRegisteredServers.ps1'" -ForegroundColor Yellow
+    
+    if (Test-Path .\sqlserver\Install-SQLServerSettings.ps1) {
+        Write-Host "SQL Server Management Studio settings were exported. Use the following to import them separately:" -ForegroundColor Yellow
+        Write-Host "  - Import SSMS settings: & '.\sqlserver\Install-SQLServerSettings.ps1'" -ForegroundColor Yellow
+        Write-Host "  - Import SSMS settings (manual instructions only): & '.\sqlserver\Install-SQLServerSettings.ps1 -ManualInstructionsOnly'" -ForegroundColor Yellow
+    }
 }
 
 Write-Host "Validation complete!" -ForegroundColor Cyan
