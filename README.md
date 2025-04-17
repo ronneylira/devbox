@@ -106,4 +106,59 @@ MIT
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request. 
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+# Windows 11 Bloatware Removal and Privacy Enhancement Script
+
+This PowerShell script helps remove unwanted pre-installed applications (bloatware) from Windows 11 Professional and enhances privacy settings by disabling telemetry and data collection features.
+
+## Features
+
+- Removes common pre-installed bloatware apps
+- Disables telemetry and user data collection
+- Enhances privacy settings
+- Disables unnecessary scheduled tasks
+- Optimizes system performance
+
+## Usage Instructions
+
+1. Right-click on the Windows Start menu and select "Windows Terminal (Admin)" or "PowerShell (Admin)"
+2. Navigate to the directory containing the script
+3. Run the following command to enable script execution (if not already enabled):
+   ```powershell
+   Set-ExecutionPolicy Bypass -Scope Process -Force
+   ```
+4. Run the script:
+   ```powershell
+   .\Remove-Bloatware.ps1
+   ```
+5. Wait for the script to complete all operations
+6. Restart your computer to ensure all changes take effect
+
+## Customization
+
+You can customize the script by editing the `$bloatwareApps` array to add or remove applications according to your preferences.
+
+## Error Handling
+
+The script includes robust error handling to ensure smooth operation even when certain components are not found:
+
+- Gracefully handles missing scheduled tasks
+- Provides clear visual feedback with color-coded status messages
+- Uses try/catch blocks to prevent script termination on non-critical errors
+- Displays detailed information about which operations succeeded or failed
+
+## Recent Updates
+
+- Added improved scheduled task detection and handling
+- Enhanced service management with better error reporting
+- Added color-coded output for better readability
+- Implemented modular design with helper functions
+- Added enhanced system optimization options
+
+## Warning
+
+- This script should be run as Administrator
+- Always create a system restore point before running this script
+- Some changes cannot be easily reversed after execution
+- Use at your own risk 
